@@ -1,0 +1,145 @@
+# This guide is for UEFI installations. Also it is directed at beginners and intermediates users. This is not something for absolute beginners, after all this is arch, not ubuntu, so I expect you to be able to 1. research and 2. know linux basics.
+# Load the correct keyboard layout - localectl list-keymaps to list all keymaps. There's us, uk, de-latin1 etc.
+loadkeys us
+
+# Verify boot-mode. If output -> files & folders => UEFI. If error/no files & dirs => BIOS 32 Bit.
+ls /sys/firmware/efi/efivars
+
+# Check network connection
+ip link
+
+# Ping arch site to ensure proper internet connectivity
+ping archlinux.org
+
+# Set automatic correct time via network true.
+timedatectl set-ntp true
+
+# List all disks and some info about them. Find the /dev/disk you want to install Arch on. For example /dev/sda or /dev/sdc.
+fdisk -l
+
+# [Info]
+#   /dev stands for devices. Connected drives are noted as /dev/sdx where x stands for a letter starting from a to z.
+#   For example, if you have 3 drives connected, it's likely they are noted as /dev/sda, /dev/sdb, /dev/sdc.
+#   Partitions are noted as a number starting from 1, appended to the drive. For example drive sda has 2 partitions that could look like this: /dev/sda1, /dev/sda2
+# [/Info]
+
+# Enter the interactive mode to work on the disk. Note the disk name you found earlier in fdisk -l for the drive you want to install Arch on. (sdx means replace x with the correct letter)
+fdisk /dev/sdx
+
+# You are now in interactive fdisk. You can list all commands and help simply by entering m.
+# I assume that you intend on fully earasing the disk you are installing arch on.
+# [STEPS]
+#   1. Remove all existing partitions by entering d. List the partition table by entering p.
+#       3 partitions are needed. 1x Boot aka EFI partition; 1x SWAP partition (optional but recommended. Leave out if you know what you're doing); 1x Root aka entire System aka Rest.
+#   2. Create partitions by entering n. Partitions are created the following way (Default is also advisible):
+#       2.1 Primary partition type is prefered (for all 3)
+#       2.2 Partition number. Starting with 1 is obvious (notice how 1 is selected as default, meaning hiting enter will select it aka the default)
+#       2.3 When it comes to the first sector, it's advisable to stick wih default aka simply hit enter.
+#       2.4 How large should the partiton being created be? For the first partition aka Boot aka EFI at least 300MB is required. Simply enter +500M. Fdisk is really that simple.
+#       2.5 Change Partiton label / code by entering t. Enter L for a list of all codes.
+#           We are creating the EFI partiton right now so look at the list and look/enter the code in for assoichaited with 'EFI'.
+#       Done. The EFI partition has been created and labeled properly. You can neatly verify by entering p.
+#   3. Do the same steps as (2.) except the SWAP partition should be at least 512M large.
+#       I advise 1-2GB. For the root partition, simply hit enter for step 2.4, it'll use the entire remaining sectors / space.
+#       Use the 'Linux swap' and 'Linux' label in step 2.5 accordingly.
+#   Now you should have 3 partitions when entering p:
+#   - sdx1 EFI at least 300M
+#   - sdx2 SWAP at least 512M
+#   - sdx3 Linux/Rest remaining space/sectors on disk.
+#   After you are happy with the part. table, write it by entering w.
+# [/STEPS]
+# You should be back at the CLI / console now aka outside of fdisk interactive mode => You see root@archiso etc.. #:
+
+# Formating the Partitions (note you can print the part table via fdisk -l /de/sdx where x refers to the correct drive from above.
+mkfs.fat /dev/sdx# <= where sdx is the disk and '#' refers to the part. number for the EFI parition. (Probably 1). So if in the case of sda and part 1 => /dev/sda1
+mkswap /dev/sdx# <= same procedure as above. '#' is probably 2.
+mkfs.x /dev/sdx# <= where x is the desired filesystem you want to have for your root / big partition. There's ext4, btrfs, exfat etc.... If you don't know the basic difference then you have some research to do, but choose any btrfs or ext4. (Btrfs is newer and has modern-ish features). sdx# same as above, though '#' is probably 3.
+
+# Mounting
+mount /dev/sdx# /mnt <= Same old music with sdx. Except for '#', we need to mount the big/root part, so '#' is probably 3.
+mount /dev/sdx# /mnt/boot <= '#' for efi part. So '#' is probably 1. If you get any error for 'boot' folder not existing simply run 'cd /mnt' and 'mkdir boot' and try again.
+swapon /dev/sdx# <= '#' for swap part. Probably 2.
+
+# Install bare packages (kernel, firmware, basic system & folder structure etc.):
+pacstrap /mnt base linux linux-firmware nano networkmanager <= nano and networkmanager are optional but highly advisible. You can also append more packages like vim etc.
+
+# Generate /etc/fstab aka default / auto mounts on startup:
+genfstab -U /mnt >> /mnt/etc/fstab <= -U means it will use the UUID of detecte disks and part. Edit /mnt/etc/fstab if you want to after this.
+
+# Chroot into, time, date, locale, hostname & hosts and set up initramfs.
+arch-chroot /mnt <= change root dir for current running process. Basically imagine you are now faking being in your system. If you want to understand it, research.
+
+# Timezone
+ln -sf /usr/share/zoneinfo/x/y <= where x is your continent and y your city for desired timezone. -s means symbolic link instead of hard, -f means force aka overwrite exisitng (in this case it will place the file at ~)
+
+# Hardware clock from system clock and update timestamps in /etc/adjtime
+hwclock --systohc
+
+# Make locales available. Edit with nano or vim etc.
+nano /etc/locale.gen <= uncomment your desired locale and Save & Exit with Ctrl+X & Y and hit Enter.
+
+# Generate locales
+locale-gen
+
+# Edit locale.conf to set lang:
+nano /etc/locale.conf <=> Add LANG=en_US.UTF-8
+
+# Edit keymap
+nano /etc/vconsole.conf <=> KEYMAP=us <= change us to whatever you used for loadkeys in the beginning or whatever keymap you prefer for your system.
+
+# Edit hostname aka name on network.
+nano /etc/hostname <=> Add whatever hostname you want. If you are clueless then just add localhost.
+
+# Edit hosts file (basic net configuration)
+nano /etc/hosts <=> Add (<tab> and <newline> indicate pressing tab or enter key aka self-explanatory):
+127.0.0.1<tab>localhost
+::1<tab><tab>localhost
+# Info if you want a permanent static ip then also add: <permanentIP><tab><hostname>.localhost<tab><hostname>
+# For example (replace <hostname> with previous step: 192.168.0.100<tab><hostname>.localhost<tab><hostname>
+# Or see https://wiki.archlinux.org/title/Network_configuration#Local_hostname_resolution or https://man.archlinux.org/man/hosts.5
+
+# Generate Initramfs for bootup process which loads kernel modules, mounts, root filesystem etc.
+mkinitcpio -P
+
+# Set/Change Root Password (VERY IMPORTANT)
+passwd
+
+# Add user or groups. Particularly add a new user. You absolutely don't want to use your root user for daily tasks!
+# I will not delve into this part, but remember to add -m to adduser or useradd to auto-create homedir structure.
+# Also if you wanna use sudo add your new user to wheel group with usermod and add <username> ALL=(ALL:ALL) ALL beneath root ALL... at the bottom of /etc/sudoers. You may have to install the sudo package with pacman -S sudo.
+# Also passwd <username> (VERY IMPORTANT)
+
+# Install GRUB bootloader. You may need to install grub or grub-bootloader with pacman if the following command fails. Research.
+grub-install --efi-directory=/boot/efi --target=x86_64-efi --bootloader_id=grub_uefi --recheck
+
+# Generate grub bootloader config
+grub-mkconfig -o /boot/grub/grub.cfg
+
+# Finally exit Chroot system environment aka back to iso environment
+exit
+
+# Unmount everything at /mnt for good measure
+umount -R /mnt
+
+# Reboot to your new system
+reboot
+
+# Login with new user credentials. Test sudo, if it works continue, if it fails, fix it.
+# Permanently enable Network Manager Service.
+sudo systemctl enable NetworkManager
+# (enabling service != starting it now, thus) Start the NetworkManager service:
+sudo systemctl start NetworkManager
+# You can also view the status or errors:
+sudo systemctl status NetworkManager
+
+# Install some big packages, X, Desktop environment, window manager, lockscreen manager etc.
+# Replace Plasma & KDE with whatever desktop environment you prefer.
+# KDE-Applications will install a lot of bloat unfourtnatly. It does contains a lot of good software though so you decide. Either remove lots of bloat later or install only certain kde apps. Research.
+sudo pacman -S xorg plasma kde-applications sddm
+
+# Enable Lockscreen Service
+sudo systemctl enable sddm.service
+
+# Done. Upon rebooting, you will be greeted with a lockscreen and graphical environment. You may wish to update & upgrade your system with sudo pacman -Syu, look up how to get paru for access to AUR packages or install GPU drivers.
+# Those topics are beyond this guides intention.
+# You are on your own now.
