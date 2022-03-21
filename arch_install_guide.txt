@@ -37,10 +37,10 @@ fdisk /dev/sdx
 #       2.3 When it comes to the first sector, it's advisable to stick wih default aka simply hit enter.
 #       2.4 How large should the partiton being created be? For the first partition aka Boot aka EFI at least 300MB is required. Simply enter +500M. Fdisk is really that simple.
 #       2.5 Change Partiton label / code by entering t. Enter L for a list of all codes.
-#           We are creating the EFI partiton right now so look at the list and look/enter the code in for assoichaited with 'EFI'.
+#           We are creating the EFI partiton right now so look at the list and look/enter the code in for associated with 'EFI'.
 #       Done. The EFI partition has been created and labeled properly. You can neatly verify by entering p.
-#   3. Do the same steps as (2.) except the SWAP partition should be at least 512M large.
-#       I advise 1-2GB. For the root partition, simply hit enter for step 2.4, it'll use the entire remaining sectors / space.
+#   3. Do the same steps as (2.) except the SWAP partition should be at least 512M large though I advise 1-2GB for good measure. Swap space is used to unload things onto the drive, when your memory / RAM is fully utilised. Suppose you have only 8GB of Memory and run various applications, that at some point in total, reach 8GB. Your system will randomly forcefully stop processes. Meaning your IDE or document editing session could lose any unsaved progress.
+#       For the root partition, simply hit enter for step 2.4, it'll use the entire remaining sectors / space.
 #       Use the 'Linux swap' and 'Linux' label in step 2.5 accordingly.
 #   Now you should have 3 partitions when entering p:
 #   - sdx1 EFI at least 300M
